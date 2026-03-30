@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>License Renewal Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: white;
+      padding: 28px 32px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.3px; }
+    header .subtitle { font-size: 0.85rem; opacity: 0.65; margin-top: 3px; }
+    #today-badge {
+      background: rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    /* ── Save status bar ── */
+    #save-bar {
+      padding: 11px 32px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    #save-bar.needs-link {
+      background: #fff8e6;
+      color: #b7770d;
+      border-bottom: 1px solid #fde8b0;
+    }
+    #save-bar.linked {
+      background: #edfbf3;
+      color: #1e7e4a;
+      border-bottom: 1px solid #b6f0ce;
+    }
+    #save-bar.no-support {
+      background: #f3f3f3;
+      color: #888;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    #link-file-btn {
+      padding: 6px 14px;
+      background: #e6a817;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    #link-file-btn:hover { background: #c98f10; }
+    .save-bar-hint {
+      font-weight: 400;
+      opacity: 0.75;
+      font-size: 0.78rem;
+    }
+
+    /* ── Alert Banner ── */
+    #alert-banner {
+      display: none;
+      background: linear-gradient(90deg, #c0392b, #e74c3c);
+      color: white;
+      padding: 14px 32px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: center;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.88} }
+
+    /* ── Main ── */
+    main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+
+    /* ── Summary row ── */
+    .summary-row { display:flex; gap:14px; margin-bottom:28px; flex-wrap:wrap; }
+    .summary-card {
+      flex:1; min-width:130px; background:white; border-radius:14px;
+      padding:18px 20px; text-align:center;
+      box-shadow:0 2px 8px rgba(0,0,0,0.07);
+      border-top:4px solid transparent;
+      transition:transform 0.15s; cursor:pointer;
+    }
+    .summary-card:hover { transform:translateY(-2px); }
+    .summary-card.urgent { border-color:#e74c3c; }
+    .summary-card.soon   { border-color:#e67e22; }
+    .summary-card.ok     { border-color:#27ae60; }
+    .summary-card.all    { border-color:#6c63ff; }
+    .summary-card .num { font-size:2.2rem; font-weight:800; line-height:1; }
+    .summary-card.urgent .num { color:#e74c3c; }
+    .summary-card.soon   .num { color:#e67e22; }
+    .summary-card.ok     .num { color:#27ae60; }
+    .summary-card.all    .num { color:#6c63ff; }
+    .summary-card .label { font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:#888; margin-top:5px; }
+
+    /* ── Filter tabs ── */
+    .filter-row { display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap; align-items:center; }
+    .filter-btn {
+      padding:8px 18px; border-radius:999px; border:2px solid transparent;
+      background:white; font-size:0.84rem; font-weight:600;
+      cursor:pointer; transition:all 0.15s;
+      box-shadow:0 1px 4px rgba(0,0,0,0.08);
+    }
+    .filter-btn:hover { transform:translateY(-1px); }
+    .filter-btn.active.btn-all    { background:#6c63ff; color:white; border-color:#6c63ff; }
+    .filter-btn.active.btn-urgent { background:#e74c3c; color:white; border-color:#e74c3c; }
+    .filter-btn.active.btn-soon   { background:#e67e22; color:white; border-color:#e67e22; }
+    .filter-btn.active.btn-ok     { background:#27ae60; color:white; border-color:#27ae60; }
+    .filter-btn.btn-urgent { color:#e74c3c; border-color:#e74c3c; }
+    .filter-btn.btn-soon   { color:#e67e22; border-color:#e67e22; }
+    .filter-btn.btn-ok     { color:#27ae60; border-color:#27ae60; }
+    .filter-btn.btn-all    { color:#6c63ff; border-color:#6c63ff; }
+    .sort-label { margin-left:auto; font-size:0.8rem; color:#888; font-weight:500; }
+
+    /* ── Cards grid ── */
+    #cards-container {
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+      gap:18px;
+    }
+
+    .license-card {
+      background:white; border-radius:16px; padding:22px 24px 20px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.07);
+      border-left:6px solid transparent;
+      transition:transform 0.15s, box-shadow 0.15s;
+      position:relative; overflow:hidden;
+    }
+    .license-card:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,0.11); }
+    .license-card.status-expired { border-color:#c0392b; }
+    .license-card.status-urgent  { border-color:#e74c3c; }
+    .license-card.status-soon    { border-color:#e67e22; }
+    .license-card.status-ok      { border-color:#27ae60; }
+    .license-card.status-expired,
+    .license-card.status-urgent { background: #fff8f8; }
+    .license-card.status-soon   { background: #fff9f5; }
+
+    .card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+    .state-name { font-size:1.25rem; font-weight:800; color:#1a1a2e; }
+
+    .status-badge { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; padding:4px 10px; border-radius:999px; }
+    .badge-expired { background:#fde8e8; color:#c0392b; }
+    .badge-urgent  { background:#fde8e8; color:#e74c3c; }
+    .badge-soon    { background:#fef0e4; color:#e67e22; }
+    .badge-ok      { background:#e8f8ef; color:#27ae60; }
+
+    .countdown-section { display:flex; align-items:baseline; gap:6px; margin-bottom:14px; }
+    .countdown-number { font-size:2.8rem; font-weight:900; line-height:1; }
+    .status-expired .countdown-number,
+    .status-urgent  .countdown-number { color:#e74c3c; }
+    .status-soon    .countdown-number { color:#e67e22; }
+    .status-ok      .countdown-number { color:#27ae60; }
+    .countdown-unit { font-size:0.9rem; font-weight:600; color:#888; }
+
+    .progress-wrap { background:#f0f2f5; border-radius:999px; height:8px; margin-bottom:14px; overflow:hidden; }
+    .progress-bar  { height:100%; border-radius:999px; transition:width 0.4s ease; }
+    .status-expired .progress-bar,
+    .status-urgent  .progress-bar { background:linear-gradient(90deg,#e74c3c,#c0392b); }
+    .status-soon    .progress-bar { background:linear-gradient(90deg,#e67e22,#d35400); }
+    .status-ok      .progress-bar { background:linear-gradient(90deg,#2ecc71,#27ae60); }
+
+    .card-details { display:flex; flex-direction:column; gap:5px; }
+    .detail-row   { display:flex; justify-content:space-between; font-size:0.82rem; }
+    .detail-label { color:#aaa; font-weight:500; }
+    .detail-value { color:#444; font-weight:600; }
+
+    .expired-stamp {
+      position:absolute; top:18px; right:-22px; background:#e74c3c; color:white;
+      font-size:0.65rem; font-weight:800; letter-spacing:1px;
+      padding:3px 30px; transform:rotate(15deg); text-transform:uppercase;
+    }
+
+    .edit-btn {
+      margin-top:14px; width:100%; padding:8px;
+      background:transparent; border:1.5px solid #e0e3ea;
+      border-radius:8px; color:#888; font-size:0.8rem; font-weight:600;
+      cursor:pointer; transition:all 0.15s;
+    }
+    .edit-btn:hover { background:#f7f8fc; border-color:#6c63ff; color:#6c63ff; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,0.45); z-index:100;
+      align-items:center; justify-content:center; padding:20px;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal {
+      background:white; border-radius:20px; padding:32px;
+      width:100%; max-width:460px;
+      box-shadow:0 20px 60px rgba(0,0,0,0.2);
+      animation:slideUp 0.2s ease;
+    }
+    @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+    .modal h2 { font-size:1.3rem; font-weight:800; margin-bottom:6px; color:#1a1a2e; }
+    .modal .modal-subtitle { font-size:0.82rem; color:#aaa; margin-bottom:24px; }
+
+    .field-group { margin-bottom:18px; }
+    .field-group label { display:block; font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#888; margin-bottom:6px; }
+    .field-group input {
+      width:100%; padding:10px 14px; border:1.5px solid #e0e3ea;
+      border-radius:10px; font-size:0.95rem; font-family:inherit;
+      color:#1a1a2e; transition:border-color 0.15s; background:#fafbfc;
+    }
+    .field-group input:focus { outline:none; border-color:#6c63ff; background:white; }
+    .field-group .hint { font-size:0.73rem; color:#bbb; margin-top:4px; }
+
+    .modal-actions { display:flex; gap:10px; margin-top:24px; }
+    .btn-save {
+      flex:1; padding:12px; background:#6c63ff; color:white;
+      border:none; border-radius:10px; font-size:0.9rem; font-weight:700;
+      cursor:pointer; transition:background 0.15s;
+    }
+    .btn-save:hover { background:#574fd6; }
+    .btn-cancel {
+      padding:12px 18px; background:transparent; color:#aaa;
+      border:1.5px solid #e0e3ea; border-radius:10px;
+      font-size:0.9rem; font-weight:600; cursor:pointer; transition:all 0.15s;
+    }
+    .btn-cancel:hover { border-color:#aaa; color:#555; }
+
+    /* ── Toast ── */
+    #toast {
+      position:fixed; bottom:30px; left:50%;
+      transform:translateX(-50%) translateY(20px);
+      background:#1a1a2e; color:white; padding:12px 24px;
+      border-radius:999px; font-size:0.88rem; font-weight:600;
+      opacity:0; transition:all 0.3s; pointer-events:none; z-index:200;
+    }
+    #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    .empty-state { text-align:center; padding:60px 20px; color:#bbb; font-size:1rem; grid-column:1/-1; }
+    footer { text-align:center; padding:20px; font-size:0.75rem; color:#bbb; }
+
+    @media (max-width:600px) {
+      #save-bar { display: none; }
+      header { padding:16px; gap:8px; }
+      header h1 { font-size:1.25rem; }
+      #today-badge { font-size:0.75rem; padding:6px 10px; }
+      #save-bar { padding:10px 16px; font-size:0.8rem; }
+      main { padding:16px 12px 40px; }
+      .summary-row { gap:8px; }
+      .summary-card { padding:12px 10px; min-width:0; }
+      .summary-card .num { font-size:1.8rem; }
+      .summary-card .label { font-size:0.68rem; }
+      #cards-container { grid-template-columns: 1fr; gap:12px; }
+      .countdown-number { font-size:2.4rem; }
+      .modal { padding:24px 20px; }
+      .filter-row { gap:6px; }
+      .filter-btn { padding:7px 13px; font-size:0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📋 License Renewal Tracker</h1>
+    <div class="subtitle">Sorted by urgency — most urgent first</div>
+  </div>
+  <div id="today-badge">Today: <span id="today-label"></span></div>
+</header>
+
+<div id="save-bar"></div>
+<div id="alert-banner"></div>
+
+<main>
+  <div class="summary-row">
+    <div class="summary-card urgent" onclick="setFilter('urgent')">
+      <div class="num" id="count-urgent">0</div>
+      <div class="label">🚨 Urgent<br><span style="font-weight:400;text-transform:none;font-size:0.72rem;letter-spacing:0">under 60 days</span></div>
+    </div>
+    <div class="summary-card soon" onclick="setFilter('soon')">
+      <div class="num" id="count-soon">0</div>
+      <div class="label">⚠️ Coming Up<br><span style="font-weight:400;text-transform:none;font-size:0.72rem;letter-spacing:0">60–180 days</span></div>
+    </div>
+    <div class="summary-card ok" onclick="setFilter('ok')">
+      <div class="num" id="count-ok">0</div>
+      <div class="label">✅ Safe<br><span style="font-weight:400;text-transform:none;font-size:0.72rem;letter-spacing:0">180+ days</span></div>
+    </div>
+    <div class="summary-card all" onclick="setFilter('all')">
+      <div class="num" id="count-all">0</div>
+      <div class="label">📂 Total<br><span style="font-weight:400;text-transform:none;font-size:0.72rem;letter-spacing:0">licenses</span></div>
+    </div>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-btn btn-all active" onclick="setFilter('all')">All</button>
+    <button class="filter-btn btn-urgent" onclick="setFilter('urgent')">🚨 Urgent</button>
+    <button class="filter-btn btn-soon" onclick="setFilter('soon')">⚠️ Coming Up</button>
+    <button class="filter-btn btn-ok" onclick="setFilter('ok')">✅ Safe</button>
+    <span class="sort-label">Sorted by expiration date</span>
+  </div>
+
+  <div id="cards-container"></div>
+</main>
+
+<footer>Dates calculated fresh each time you open this file</footer>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal" onclick="closeModal(event)">
+  <div class="modal">
+    <h2 id="modal-state-name">Edit License</h2>
+    <div class="modal-subtitle" id="modal-subtitle">Your changes will be written into this file</div>
+    <div class="field-group">
+      <label>License Number</label>
+      <input type="text" id="edit-license-num" placeholder="e.g. NT10051521" />
+    </div>
+    <div class="field-group">
+      <label>Date Issued</label>
+      <input type="text" id="edit-issued" placeholder="MM/DD/YYYY" />
+      <div class="hint">Format: MM/DD/YYYY</div>
+    </div>
+    <div class="field-group">
+      <label>Expiration Date</label>
+      <input type="text" id="edit-expires" placeholder="MM/DD/YYYY" />
+      <div class="hint">Format: MM/DD/YYYY</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModalDirect()">Cancel</button>
+      <button class="btn-save" onclick="saveEdit()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LICENSE DATA — this block is rewritten when you save edits
+     ═══════════════════════════════════════════════════════════ -->
+<script id="license-data">
+// %%BEGIN_LICENSE_DATA%%
+const LICENSES_DATA = [
+  { "state": "Arizona",        "licenseNum": "NT10051521", "issued": "05/09/2025", "expires": "05/09/2026" },
+  { "state": "Idaho",          "licenseNum": "SIGN-4930",  "issued": "10/18/2021", "expires": "05/09/2026" },
+  { "state": "Kentucky",       "licenseNum": "272583",     "issued": "03/09/2026", "expires": "08/31/2026" },
+  { "state": "Connecticut",    "licenseNum": "31592",      "issued": "09/30/2025", "expires": "09/29/2026" },
+  { "state": "Arkansas",       "licenseNum": "1244170",    "issued": "01/05/2025", "expires": "12/30/2026" },
+  { "state": "Pennsylvania",   "licenseNum": "2264",       "issued": "01/06/2026", "expires": "12/31/2026" },
+  { "state": "Utah",           "licenseNum": "—",          "issued": "12/31/2021", "expires": "02/26/2027" },
+  { "state": "Iowa",           "licenseNum": "108995",     "issued": "06/02/2021", "expires": "06/29/2027" },
+  { "state": "Michigan",       "licenseNum": "—",          "issued": "01/02/2026", "expires": "06/30/2027" },
+  { "state": "Wisconsin",      "licenseNum": "1392-158",   "issued": "02/09/2022", "expires": "08/30/2027" },
+  { "state": "New Hampshire",  "licenseNum": "—",          "issued": "02/09/2026", "expires": "01/31/2029" },
+  { "state": "Michigan (End)", "licenseNum": "—",          "issued": "01/02/2026", "expires": "06/30/2030" },
+  { "state": "Missouri",       "licenseNum": "—",          "issued": "—",          "expires": "—"          }
+];
+// %%END_LICENSE_DATA%%
+</script>
+
+<script>
+  // ── Working copy of licenses ──────────────────────────────
+  let licenses = JSON.parse(JSON.stringify(LICENSES_DATA));
+
+  // ── File System Access API ────────────────────────────────
+  const supportsFileAccess = ('showOpenFilePicker' in window);
+  let fileHandle = null;
+
+  function initSaveBar() {
+    const bar = document.getElementById('save-bar');
+    if (!supportsFileAccess) {
+      bar.className = 'no-support';
+      bar.innerHTML = `📂 <span>Saving to file requires Chrome or Edge.</span>
+        <span class="save-bar-hint">Your edits will still be remembered in this browser session.</span>`;
+      return;
+    }
+    bar.className = 'needs-link';
+    bar.innerHTML = `🔗 <span>Link this file once to save edits directly into it — works across devices via Dropbox, OneDrive, etc.</span>
+      <button id="link-file-btn" onclick="linkFile()">📂 Link this file</button>`;
+  }
+
+  async function linkFile() {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'HTML file', accept: { 'text/html': ['.html'] } }],
+        multiple: false
+      });
+      fileHandle = handle;
+      const bar = document.getElementById('save-bar');
+      bar.className = 'linked';
+      bar.innerHTML = `✅ <span>Linked to <strong>${handle.name}</strong> — edits write directly into this file.</span>
+        <span class="save-bar-hint">Sync it with Dropbox, OneDrive, etc. and it stays up to date everywhere.</span>`;
+      showToast('✅ File linked! Edits will now save into the file.');
+    } catch(e) {
+      // User cancelled — do nothing
+    }
+  }
+
+  async function writeToFile() {
+    if (!fileHandle) return false;
+    try {
+      // Read current file content
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+
+      // Replace the data block between our markers
+      const newData = JSON.stringify(licenses, null, 2)
+        .split('\n').map((l, i) => i === 0 ? l : '  ' + l).join('\n');
+
+      const updated = content.replace(
+        /\/\/ %%BEGIN_LICENSE_DATA%%[\s\S]*?\/\/ %%END_LICENSE_DATA%%/,
+        `// %%BEGIN_LICENSE_DATA%%\nconst LICENSES_DATA = ${newData};\n// %%END_LICENSE_DATA%%`
+      );
+
+      const writable = await fileHandle.createWritable();
+      await writable.write(updated);
+      await writable.close();
+      return true;
+    } catch(e) {
+      console.warn('File write failed:', e);
+      return false;
+    }
+  }
+
+  // ── Modal ─────────────────────────────────────────────────
+  let editingIndex = null;
+
+  function openEdit(idx) {
+    editingIndex = idx;
+    const l = licenses[idx];
+    document.getElementById('modal-state-name').textContent = '✏️ ' + l.state;
+    document.getElementById('modal-subtitle').textContent = fileHandle
+      ? 'Changes will be written into the file'
+      : 'Changes saved for this session (link file to persist)';
+    document.getElementById('edit-license-num').value = l.licenseNum === '—' ? '' : l.licenseNum;
+    document.getElementById('edit-issued').value       = l.issued     === '—' ? '' : l.issued;
+    document.getElementById('edit-expires').value      = l.expires    === '—' ? '' : l.expires;
+    document.getElementById('edit-modal').classList.add('open');
+    document.getElementById('edit-license-num').focus();
+  }
+
+  function closeModal(e) { if (e.target === document.getElementById('edit-modal')) closeModalDirect(); }
+  function closeModalDirect() { document.getElementById('edit-modal').classList.remove('open'); editingIndex = null; }
+
+  async function saveEdit() {
+    if (editingIndex === null) return;
+
+    const num     = document.getElementById('edit-license-num').value.trim();
+    const issued  = document.getElementById('edit-issued').value.trim();
+    const expires = document.getElementById('edit-expires').value.trim();
+
+    const dateRx = /^\d{2}\/\d{2}\/\d{4}$/;
+    if (issued  && !dateRx.test(issued))  { shakeInput('edit-issued');  return; }
+    if (expires && !dateRx.test(expires)) { shakeInput('edit-expires'); return; }
+
+    licenses[editingIndex].licenseNum = num     || '—';
+    licenses[editingIndex].issued     = issued  || '—';
+    licenses[editingIndex].expires    = expires || '—';
+
+    const stateName = licenses[editingIndex].state;
+    closeModalDirect();
+    renderCards();
+
+    if (fileHandle) {
+      showToast('💾 Saving…');
+      const ok = await writeToFile();
+      showToast(ok ? `✅ ${stateName} saved to file!` : `⚠️ ${stateName} updated (file write failed)`);
+    } else {
+      showToast(`✅ ${stateName} updated`);
+    }
+  }
+
+  function shakeInput(id) {
+    const el = document.getElementById(id);
+    el.style.borderColor = '#e74c3c';
+    el.animate([{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}], {duration:300});
+    setTimeout(() => { el.style.borderColor = ''; }, 600);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('edit-modal').classList.contains('open')) return;
+    if (e.key === 'Enter')  saveEdit();
+    if (e.key === 'Escape') closeModalDirect();
+  });
+
+  // ── Toast ─────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  function parseDate(str) {
+    if (!str || str === '—') return null;
+    const [m, d, y] = str.split('/');
+    return new Date(+y, +m - 1, +d);
+  }
+  function daysUntil(dateStr) {
+    const exp = parseDate(dateStr);
+    if (!exp) return null;
+    const today = new Date(); today.setHours(0,0,0,0);
+    return Math.round((exp - today) / 86400000);
+  }
+  function statusOf(days) {
+    if (days === null) return 'unknown';
+    if (days < 0)    return 'expired';
+    if (days <= 60)  return 'urgent';
+    if (days <= 180) return 'soon';
+    return 'ok';
+  }
+  function badgeHTML(status, days) {
+    const map = {
+      expired: ['badge-expired','EXPIRED'],
+      urgent:  ['badge-urgent', `${days}d LEFT`],
+      soon:    ['badge-soon',   `${days}d LEFT`],
+      ok:      ['badge-ok',    'On Track'],
+      unknown: ['badge-ok',    'No Date'],
+    };
+    const [cls, text] = map[status] || map.ok;
+    return `<span class="status-badge ${cls}">${text}</span>`;
+  }
+  function progressPct(issued, expires) {
+    const s = parseDate(issued), e = parseDate(expires);
+    if (!s || !e) return 100;
+    return Math.min(100, Math.max(0, Math.round(((Date.now()-s)/(e-s))*100)));
+  }
+  function formatDate(str) {
+    const d = parseDate(str);
+    if (!d) return '—';
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  }
+
+  // ── Render ────────────────────────────────────────────────
+  let activeFilter = 'all';
+
+  function setFilter(f) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.btn-${f}`)?.classList.add('active');
+    renderCards();
+  }
+
+  function renderCards() {
+    const container = document.getElementById('cards-container');
+
+    const sorted = licenses.map((l, originalIdx) => ({
+      ...l, originalIdx,
+      days:   daysUntil(l.expires),
+      status: statusOf(daysUntil(l.expires))
+    })).sort((a, b) => {
+      if (a.days === null && b.days === null) return 0;
+      if (a.days === null) return 1;
+      if (b.days === null) return -1;
+      return a.days - b.days;
+    });
+
+    const urgentItems = sorted.filter(l => l.status==='expired'||l.status==='urgent');
+    const soonItems   = sorted.filter(l => l.status==='soon');
+    const okItems     = sorted.filter(l => l.status==='ok');
+
+    document.getElementById('count-urgent').textContent = urgentItems.length;
+    document.getElementById('count-soon').textContent   = soonItems.length;
+    document.getElementById('count-ok').textContent     = okItems.length;
+    document.getElementById('count-all').textContent    = licenses.length;
+
+    const banner = document.getElementById('alert-banner');
+    if (urgentItems.length > 0) {
+      banner.style.display = 'block';
+      banner.textContent   = '🚨 Action needed: ' + urgentItems.map(l=>l.state).join(' · ');
+    } else {
+      banner.style.display = 'none';
+    }
+
+    let visible = sorted;
+    if (activeFilter==='urgent') visible = sorted.filter(l=>l.status==='expired'||l.status==='urgent');
+    if (activeFilter==='soon')   visible = sorted.filter(l=>l.status==='soon');
+    if (activeFilter==='ok')     visible = sorted.filter(l=>l.status==='ok');
+
+    if (visible.length === 0) {
+      container.innerHTML = `<div class="empty-state">No licenses in this category 🎉</div>`;
+      return;
+    }
+
+    container.innerHTML = visible.map(l => {
+      const { state, licenseNum, issued, expires, days, status, originalIdx } = l;
+      const pct = progressPct(issued, expires);
+      let countdownHTML = '';
+      if (days === null) {
+        countdownHTML = `<div class="countdown-section"><span class="countdown-number" style="color:#bbb;font-size:1.6rem">No date</span></div>`;
+      } else if (days < 0) {
+        countdownHTML = `<div class="countdown-section"><span class="countdown-number">${Math.abs(days)}</span><span class="countdown-unit">days overdue</span></div>`;
+      } else {
+        countdownHTML = `<div class="countdown-section"><span class="countdown-number">${days}</span><span class="countdown-unit">days until renewal</span></div>`;
+      }
+      return `
+        <div class="license-card status-${status}">
+          ${status==='expired' ? '<div class="expired-stamp">Expired</div>' : ''}
+          <div class="card-top">
+            <div class="state-name">${state}</div>
+            ${badgeHTML(status, days)}
+          </div>
+          ${countdownHTML}
+          <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+          <div class="card-details">
+            <div class="detail-row"><span class="detail-label">License #</span><span class="detail-value">${licenseNum}</span></div>
+            <div class="detail-row"><span class="detail-label">Issued</span><span class="detail-value">${formatDate(issued)}</span></div>
+            <div class="detail-row"><span class="detail-label">Expires</span><span class="detail-value">${formatDate(expires)}</span></div>
+          </div>
+          <button class="edit-btn" onclick="openEdit(${originalIdx})">✏️ Edit this license</button>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+  const now = new Date();
+  document.getElementById('today-label').textContent = now.toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric',year:'numeric'});
+
+  initSaveBar();
+  renderCards();
+</script>
+</body>
+</html>
